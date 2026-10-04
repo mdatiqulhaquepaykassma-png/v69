@@ -1,9 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import {
-  Shield,
   Wallet,
   Gamepad2,
-  ChevronDown,
   Swords,
   Trophy,
   Smartphone,
@@ -13,16 +11,15 @@ import {
   History,
 } from "lucide-react";
 import { UserWallet } from "../types";
-import { formatCurrency, CURRENCIES, getStoredCurrencyCode } from "../utils/currency";
+import { formatCurrency, getStoredCurrencyCode } from "../utils/currency";
 import { BrandLogo } from "./BrandLogo";
-import { BUILD_NUMBER } from "../config/version";
 
 interface NavbarProps {
   user: UserWallet | null;
   activeTab: "game" | "p2p" | "leaderboard";
   setActiveTab: (tab: "game" | "p2p" | "leaderboard") => void;
   selectedTable: "express" | "classic" | "vip";
-  onSelectTable: (table: "express" | "classic" | "vip") => void;
+  onSelectTable?: (table: "express" | "classic" | "vip") => void;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
   voiceEnabled?: boolean;
@@ -65,8 +62,6 @@ export const Navbar = React.memo<NavbarProps>(({
   user,
   activeTab,
   setActiveTab,
-  selectedTable,
-  onSelectTable,
   soundEnabled = true,
   onToggleSound,
   onOpenWallet,
@@ -78,84 +73,15 @@ export const Navbar = React.memo<NavbarProps>(({
   isStandalone = false,
   selectedCurrency,
   lang = "bn",
-  telemetryPlayerCount = 1,
-  tablePlayerCounts,
 }) => {
-  const [tableDropdownOpen, setTableDropdownOpen] = useState<boolean>(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   const activeCurrencyCode = selectedCurrency || getStoredCurrencyCode();
-  const activeCurrencyConfig = CURRENCIES[activeCurrencyCode] || CURRENCIES.INR;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setTableDropdownOpen(false);
-      }
-    };
-    if (tableDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("touchstart", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [tableDropdownOpen]);
-
-  // Real active counts calculation per table
-  const realTableCounts = {
-    express: tablePlayerCounts?.express ?? (selectedTable === "express" ? Math.max(1, telemetryPlayerCount) : 0),
-    classic: tablePlayerCounts?.classic ?? (selectedTable === "classic" ? Math.max(1, telemetryPlayerCount) : 0),
-    vip: tablePlayerCounts?.vip ?? (selectedTable === "vip" ? Math.max(1, telemetryPlayerCount) : 0),
-  };
-
-  const tableOptions: Array<{
-    id: "express" | "classic" | "vip";
-    name: string;
-    icon: string;
-    speed: string;
-    minBetFormatted: string;
-    maxBetFormatted: string;
-    realActiveCount: number;
-  }> = [
-    {
-      id: "express",
-      name: "Express",
-      icon: "⚡",
-      speed: "10s",
-      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      maxBetFormatted: formatCurrency(1000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      realActiveCount: realTableCounts.express,
-    },
-    {
-      id: "classic",
-      name: "Classic",
-      icon: "🎯",
-      speed: "15s",
-      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      maxBetFormatted: formatCurrency(10000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      realActiveCount: realTableCounts.classic,
-    },
-    {
-      id: "vip",
-      name: "VIP",
-      icon: "👑",
-      speed: "20s",
-      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      maxBetFormatted: formatCurrency(100000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
-      realActiveCount: realTableCounts.vip,
-    },
-  ];
-
-  const currentTable = tableOptions.find((t) => t.id === selectedTable) || tableOptions[0];
   const currentBalance = user ? (user.balanceType === "real" ? user.balance : user.demoBalance) : 0;
 
   return (
     <header className="bg-neutral-950/95 backdrop-blur-2xl border-b border-amber-500/20 sticky top-0 z-50 px-2 sm:px-4 lg:px-6 h-12 sm:h-14 flex items-center shadow-[0_4px_25px_rgba(0,0,0,0.85)] w-full select-none m-0">
       <div className="max-w-[1600px] w-full mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
         
-        {/* Zone 1: Brand & Table Selector */}
+        {/* Zone 1: Brand Logo & Title */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <div 
             onClick={() => setActiveTab("game")}
@@ -171,8 +97,8 @@ export const Navbar = React.memo<NavbarProps>(({
           </div>
         </div>
 
-        {/* Zone 2: Navigation Tabs (Desktop & Tablet) */}
-        <nav className="hidden lg:flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 shadow-inner">
+        {/* Zone 2: Navigation Tabs (Tablet & Desktop) */}
+        <nav className="hidden md:flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 shadow-inner">
           <button
             onClick={() => setActiveTab('game')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
@@ -222,7 +148,7 @@ export const Navbar = React.memo<NavbarProps>(({
           </button>
         </nav>
 
-        {/* Zone 3: Telemetry, Wallet & Controls */}
+        {/* Zone 3: Controls, Wallet & Menu Button with Build Number */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
           {/* Sound Toggle Button (Hidden on Mobile, available in Menu) */}
@@ -297,24 +223,20 @@ export const Navbar = React.memo<NavbarProps>(({
             </button>
           )}
 
-          {/* Menu Button with Build Indicator */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={onOpenMenu}
-              className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white transition-all active:scale-90 cursor-pointer shrink-0 group"
-              title={`Menu (Build #${BUILD_NUMBER})`}
-              aria-label="Menu"
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none stroke-[2.2]">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-              <span className="hidden xl:block absolute -top-1 -right-1 text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1 py-0.2 rounded font-mono font-bold pointer-events-none">
-                {BUILD_NUMBER.slice(0, 6)}
-              </span>
-            </button>
-          </div>
+          {/* Menu Button */}
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-white/15 hover:border-amber-400/60 flex items-center justify-center text-white transition-all active:scale-95 cursor-pointer shrink-0 shadow-sm group"
+            title="Menu"
+            aria-label="Menu"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-current fill-none stroke-[2.2] text-neutral-300 group-hover:text-amber-400 transition-colors">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
         </div>
       </div>
     </header>

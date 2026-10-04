@@ -1,7 +1,6 @@
 import React from "react";
 import { ShieldCheck, Lock, Activity, Globe, Scale, Award, HeartHandshake } from "lucide-react";
 import { HighLoadTelemetry } from "../types";
-import { BUILD_NUMBER } from "../config/version";
 
 interface RegulatoryFooterProps {
   lang: "bn" | "en";
@@ -142,8 +141,6 @@ export const RegulatoryFooter: React.FC<RegulatoryFooterProps> = ({
             <span>SLA: 99.9%</span>
             <span>·</span>
             <span className="text-emerald-400/90 font-medium">Fully Operational</span>
-            <span>·</span>
-            <span className="font-mono text-amber-400/90 font-bold">Build #{BUILD_NUMBER}</span>
           </div>
         </div>
       </div>

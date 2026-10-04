@@ -24,17 +24,11 @@ Build, maintain, and operate the **APEX Dragon Tiger P2P Casino Platform** under
 - **Real Verified Leaderboard**: The leaderboard displays 100% genuine player data based exclusively on actual verified games played (`gamesPlayed > 0`), with zero simulated bot entries.
 - **Authentic Telemetry**: Online player counts, TPS, and room capacity trends reflect 100% genuine live WebSocket connections and actual active rooms.
 
-### 4. BUILD NUMBER VISIBILITY (`show build number everywhere footer with login page and menu button`)
-- The active build identifier (`BUILD_NUMBER`) sourced from `/src/config/version.ts` must be displayed across all footers, the login page, and the menu button/drawer:
-  1. **Login Page Footer** (`LoginScreen.tsx`): Bottom status bar with status indicator and build badge (`Build #{BUILD_NUMBER}`).
-  2. **Navbar Menu Button** (`Navbar.tsx`): Header menu button title and micro version tag.
-  3. **Side Navigation Menu Drawer** (`SideNavDrawer.tsx`): Dedicated "SYSTEM VERSION" badge with active build number (`{BUILD_NUMBER}`).
-  4. **Universal Regulatory Footer** (`RegulatoryFooter.tsx`): Bottom status bar with operational SLA and `Build #{BUILD_NUMBER}`.
-  5. **1v1 Arena Footer** (`OneOnOneArena.tsx`): Bottom status stamp with `Build #{BUILD_NUMBER}`.
-  6. **P2P Multiplayer Lobby Footer** (`P2PLobby.tsx`): Bottom status stamp with `Build #{BUILD_NUMBER}`.
-  7. **Global Leaderboard Footer** (`Leaderboard.tsx`): Bottom status stamp with `Build #{BUILD_NUMBER}`.
-  8. **Mobile Bottom Navigation Bar** (`MobileBottomNav.tsx`): Micro build badge centered on top border.
-  9. **Admin Console & Login** (`AdminLogin.tsx` & `AdminDashboard.tsx`): Bottom status bar with `Build #{BUILD_NUMBER}`.
+### 4. BUILD NUMBER VISIBILITY (`remove buildnumber from menubar`)
+- The active build identifier (`BUILD_NUMBER`) sourced from `/src/config/version.ts` is displayed **ONLY** on:
+  1. **Login Page** (`LoginScreen.tsx`): Bottom status bar with status indicator and build badge (`Build #{BUILD_NUMBER}`).
+  2. **Side Navigation Menu Drawer** (`SideNavDrawer.tsx`): Dedicated "SYSTEM VERSION" badge with active build number (`{BUILD_NUMBER}`).
+- **Removed from Menubar & All Other Surfaces**: The top navigation bar (`Navbar.tsx`) features a clean, minimal icon-only menu button without any build number badge. All other footers, lobbies, arenas, and bottom bars remain completely clean and distraction-free.
 
 ### 5. NAVIGATION BARS & INSTALL BUTTON POSITIONING
 - **Dual Navigation Consistency**:

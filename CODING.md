@@ -69,17 +69,12 @@ APEX Dragon Tiger is an enterprise-grade, high-frequency Peer-to-Peer (P2P) live
 - Real-time active player counts, TPS, and room metrics reflect 100% genuine live WebSocket connections and verified player records.
 - The global leaderboard lists exclusively authentic players with recorded hands played.
 
-### 4. Global Build Number Visibility (`show build number everywhere footer with login page and menu button`)
-- The active `BUILD_NUMBER` imported from `src/config/version.ts` must be rendered in every footer surface, login page, and menu button:
+### 4. Build Number Visibility (`show build number only login page and menu button`)
+- The active `BUILD_NUMBER` imported from `src/config/version.ts` is rendered **ONLY** on:
   1. `LoginScreen.tsx`: Login page bottom status bar.
-  2. `Navbar.tsx`: Menu button title and micro version tag.
+  2. `Navbar.tsx`: Menu button with visible build badge and tooltip.
   3. `SideNavDrawer.tsx`: Dedicated system version block.
-  4. `RegulatoryFooter.tsx`: Universal footer rendered across all views.
-  5. `MobileBottomNav.tsx`: Micro build indicator anchored above mobile tabs.
-  6. `OneOnOneArena.tsx`: Status footer in 1v1 arena.
-  7. `P2PLobby.tsx`: Global multiplayer lobby footer.
-  8. `Leaderboard.tsx`: Elite rankings footer.
-  9. `AdminLogin.tsx` & `AdminDashboard.tsx`: Administrative console build stamps.
+- Stripped from all other pages, footers, tables, and mobile bottom navigation for a clean UI.
 
 ### 5. PWA Installation & Launch Mechanics
 - **Why "Open" previously failed**: Standard web browsers forbid web pages from programmatically launching installed external apps via `window.location.href`. Navigating to `/` merely reloads the browser tab.

@@ -47,17 +47,12 @@ The backend (`server.ts`) is the single source of truth for:
 
 ---
 
-## 5. Global Build Number Visibility Governance
-As per system directive (`show build number everywhere footer with login page and menu button`), the build identifier (`BUILD_NUMBER`) is rendered across:
+## 5. Strict Build Number Visibility Governance
+As per system directive (`show build number only login page and menu button`), the build identifier (`BUILD_NUMBER`) is rendered **ONLY** on:
 - The **Login Screen** bottom status bar (`LoginScreen.tsx`).
-- The **Navbar Menu Button** (`Navbar.tsx`).
+- The **Navbar Menu Button** (`Navbar.tsx`) with visible build badge and tooltip.
 - The **Side Navigation Drawer Menu** (`SideNavDrawer.tsx`).
-- The **Universal Regulatory Footer** (`RegulatoryFooter.tsx`).
-- The **1v1 Arena Footer** (`OneOnOneArena.tsx`).
-- The **P2P Multiplayer Lobby Footer** (`P2PLobby.tsx`).
-- The **Global Leaderboard Footer** (`Leaderboard.tsx`).
-- The **Mobile Bottom Navigation Bar** micro-badge (`MobileBottomNav.tsx`).
-- The **Admin Login & Admin Console Footers** (`AdminLogin.tsx` and `AdminDashboard.tsx`).
+It is stripped from all other UI components (all page footers, tables, HUDs, lobbies, leaderboards, mobile bottom nav) to ensure pristine, uncluttered gameplay.
 
 ---
 

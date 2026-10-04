@@ -41,7 +41,6 @@ import { useNotificationSystem } from '../utils/useNotificationSystem';
 import { sound } from '../utils/audio';
 import { formatCurrency, getStoredCurrencyCode, getActiveCurrencySymbol } from '../utils/currency';
 import { PullToRefresh } from './PullToRefresh';
-import { BUILD_NUMBER } from '../config/version';
 
 interface P2PLobbyProps {
   user: UserWallet | null;
@@ -1572,12 +1571,7 @@ export const P2PLobby = React.memo<P2PLobbyProps>(({ user, onUpdateWallet, onReq
       )}
 
       {/* Clean Mobile End Spacer */}
-      <div className="h-4 md:h-2" />
-      
-      {/* Footer Build Stamp */}
-      <div className="text-center py-2.5 border-t border-white/5 text-[10px] text-neutral-500 font-mono">
-        P2P Multiplayer Arena · 100% Real Players · Zero Bots · Build #{BUILD_NUMBER}
-      </div>
+      <div className="h-6 md:h-2" />
     </PullToRefresh>
   );
 });

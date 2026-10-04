@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { ShieldAlert, Lock, ArrowLeft, KeyRound } from "lucide-react";
-import { BUILD_NUMBER } from "../config/version";
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -142,8 +141,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
           <div className="text-[10px] font-mono text-neutral-500 flex items-center justify-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             <span>Cryptographic Session Guard</span>
-            <span>·</span>
-            <span className="text-amber-400/80 font-bold">Build #{BUILD_NUMBER}</span>
           </div>
         </div>
       </div>

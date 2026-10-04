@@ -30,7 +30,6 @@ import {
 import { AdminGrant, TagFolderSummary, UserActivityLog, RoundDispute, PlayerReport } from "../types";
 import { AdminReportManagementModal } from "./AdminReportManagementModal";
 import { motion, AnimatePresence } from "framer-motion";
-import { BUILD_NUMBER } from "../config/version";
 
 interface AdminDashboardProps {
   onLogout?: () => void;
@@ -2579,8 +2578,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onExit
         </div>
         <div className="flex items-center gap-3">
           <span className="text-emerald-400">System Healthy</span>
-          <span>·</span>
-          <span className="font-mono text-amber-400 font-bold">Build #{BUILD_NUMBER}</span>
         </div>
       </footer>
     </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Sparkles, TrendingUp, Coins } from 'lucide-react';
 import { LeaderboardEntry } from '../types';
 import { PullToRefresh } from './PullToRefresh';
-import { BUILD_NUMBER } from '../config/version';
 
 interface LeaderboardProps {
   onOpenLiquidity?: () => void;
@@ -192,12 +191,7 @@ export const Leaderboard = React.memo<LeaderboardProps>(({ onOpenLiquidity, curr
         )}
 
         {/* Clean Mobile End Spacer */}
-        <div className="h-4 md:h-2" />
-        
-        {/* Footer Build Stamp */}
-        <div className="text-center py-2 border-t border-white/5 text-[10px] text-neutral-500 font-mono">
-          Global Leaderboard · Real Verified Data · Build #{BUILD_NUMBER}
-        </div>
+        <div className="h-6 md:h-2" />
       </div>
     </PullToRefresh>
   );

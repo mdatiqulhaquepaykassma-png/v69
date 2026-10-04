@@ -14,7 +14,6 @@ import {
   Users,
   CheckCircle2,
   BookOpen,
-  Clock,
   Scale,
   Award,
   User,
@@ -53,7 +52,6 @@ import { useActiveCurrency, formatCurrency } from "../utils/currency";
 import { usePerformanceMode } from "../utils/performance";
 import { useAdaptiveAsset } from "../utils/performanceAssetDelivery";
 import { LiveChat } from "./LiveChat";
-import { SignalStrengthIndicator } from "./SignalStrengthIndicator";
 import { LiveBetFeed } from "./LiveBetFeed";
 import { LiveAction } from "./LiveAction";
 import { LiveBetTransparencyModal } from "./LiveBetTransparencyModal";
@@ -283,16 +281,14 @@ export const GameTable = React.memo<GameTableProps>(({
     const updateClock = () => {
       // Calculate synchronized time using server offset
       const now = new Date(Date.now() + serverOffsetRef.current);
-      let hours = now.getHours();
-      const period = hours >= 12 ? "PM" : "AM";
-      hours = hours % 12 || 12;
+      const hours = now.getHours();
 
       const hh = String(hours).padStart(2, "0");
       const mm = String(now.getMinutes()).padStart(2, "0");
       const ss = String(now.getSeconds()).padStart(2, "0");
       const ms = String(now.getMilliseconds()).padStart(3, "0");
 
-      setLiveClockTime(`${hh}:${mm}:${ss}:${ms} ${period}`);
+      setLiveClockTime(`${hh}:${mm}:${ss}:${ms}`);
       animFrameId = requestAnimationFrame(updateClock);
     };
 
@@ -2710,9 +2706,6 @@ export const GameTable = React.memo<GameTableProps>(({
                      <span className="text-amber-400 font-black tracking-tight text-[10px] sm:text-xs">
                        #{currentRound?.roundNumber || 96}
                      </span>
-                     
-                     {/* Real-Time WebSocket Latency & Signal Strength Indicator */}
-                     <SignalStrengthIndicator lang={lang} align="left" showTextOnMobile compact />
 
                      <button
                        onClick={() => setShowRoadmapPanel(!showRoadmapPanel)}
@@ -2813,8 +2806,7 @@ export const GameTable = React.memo<GameTableProps>(({
                  </div>
                  <div className="flex items-center gap-1 sm:gap-2">
                     {liveClockTime && (
-                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-amber-200 bg-amber-950/80 border border-amber-500/40 px-1 sm:px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                        <Clock className="w-2.5 h-2.5 text-amber-400 animate-pulse shrink-0" />
+                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-amber-200 bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded flex items-center shadow-sm">
                         <span className="tabular-nums">{liveClockTime}</span>
                       </span>
                     )}

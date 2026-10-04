@@ -47,18 +47,12 @@ APEX Casino is a full-stack, real-time gaming exchange designed for high concurr
 - Real-time active player counts, TPS, and room metrics reflect 100% genuine live WebSocket connections and verified player records.
 - The global leaderboard lists exclusively authentic players with recorded hands played.
 
-### 4. Build Number Everywhere (`show build number everywhere footer with login page and menu button`)
-- Version tracking (`BUILD_NUMBER`) is rendered in all page footers, including:
+### 4. Build Number Visibility (`show build number only login page and menu button`)
+- Version tracking (`BUILD_NUMBER`) is rendered **ONLY** on:
   - Public Login page footer (`LoginScreen.tsx`)
-  - Navbar Menu Button (`Navbar.tsx`)
+  - Navbar Menu Button (`Navbar.tsx`) with visible build badge and tooltip
   - Side Navigation Drawer menu (`SideNavDrawer.tsx`)
-  - Logged-in Regulatory footer on all pages (`RegulatoryFooter.tsx` via `App.tsx`)
-  - Mobile Bottom Navigation micro-badge (`MobileBottomNav.tsx`)
-  - 1v1 Arena status footer (`OneOnOneArena.tsx`)
-  - P2P Multiplayer Lobby footer (`P2PLobby.tsx`)
-  - Leaderboard footer (`Leaderboard.tsx`)
-  - Admin Login footer (`AdminLogin.tsx`)
-  - Admin Dashboard status bar (`AdminDashboard.tsx`)
+- All other pages, footers, tables, and mobile navbars have had build number removed for a clean, distraction-free interface.
 
 ### 5. Direct PWA Installation & Launch Architecture
 - **Root Cause of "Open doesn't launch app"**:

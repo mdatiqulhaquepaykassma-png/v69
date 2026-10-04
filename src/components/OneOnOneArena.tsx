@@ -32,7 +32,6 @@ import {
 import { UserWallet, P2PRoom, PlayingCard } from "../types";
 import { sound } from "../utils/audio";
 import { getActiveCurrencySymbol, formatCurrency } from "../utils/currency";
-import { BUILD_NUMBER } from "../config/version";
 
 interface OneOnOneArenaProps {
   user: UserWallet | null;
@@ -2613,12 +2612,7 @@ export const OneOnOneArena: React.FC<OneOnOneArenaProps> = ({ user, onUpdateWall
       )}
 
       {/* Clean Mobile End Spacer */}
-      <div className="h-4 md:h-2" />
-      
-      {/* 1v1 Arena Footer Build Stamp */}
-      <div className="text-center py-2.5 border-t border-white/5 text-[10px] text-neutral-500 font-mono">
-        1v1 Duel Arena · 100% Real Players · Zero Bots · Build #{BUILD_NUMBER}
-      </div>
+      <div className="h-6 md:h-2" />
     </div>
   );
 };

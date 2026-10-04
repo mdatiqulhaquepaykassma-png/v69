@@ -3,7 +3,6 @@ import { Swords, Trophy, Wallet, Gamepad2, Smartphone, History } from "lucide-re
 import { UserWallet } from "../types";
 import { sound } from "../utils/audio";
 import { formatCurrency, getStoredCurrencyCode } from "../utils/currency";
-import { BUILD_NUMBER } from "../config/version";
 
 interface MobileBottomNavProps {
   activeTab: "game" | "p2p" | "leaderboard";
@@ -34,11 +33,7 @@ export const MobileBottomNav = React.memo<MobileBottomNavProps>(({
   const activeCurrencyCode = selectedCurrency || getStoredCurrencyCode();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-2xl border-t border-white/10 px-2 pt-1.5 pb-2.5 flex items-center justify-around safe-area-pb shadow-[0_-8px_32px_rgba(0,0,0,0.8)] relative">
-      {/* Micro Build Number Indicator */}
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.2 bg-black/90 border border-amber-500/30 rounded-full text-[7.5px] font-mono text-amber-400 font-bold pointer-events-none shadow-sm">
-        #{BUILD_NUMBER}
-      </div>
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-2xl border-t border-white/10 px-2 pt-1.5 pb-2.5 flex items-center justify-around safe-area-pb shadow-[0_-8px_32px_rgba(0,0,0,0.8)]">
       {/* 1. Game Table (Arena) */}
       <button
         type="button"
