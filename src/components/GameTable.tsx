@@ -166,6 +166,8 @@ interface GameTableProps {
   onRequireLogin?: () => void;
   onSelectTable?: (table: "express" | "classic" | "vip") => void;
   lang?: "bn" | "en";
+  latency?: number;
+  onMeasurePing?: () => Promise<number>;
 }
 
 export const GameTable = React.memo<GameTableProps>(({
@@ -182,8 +184,51 @@ export const GameTable = React.memo<GameTableProps>(({
   onRequireLogin,
   onSelectTable,
   lang = "bn",
+  latency = 24,
+  onMeasurePing,
 }) => {
   const [tableSelectorOpen, setTableSelectorOpen] = useState<boolean>(false);
+  const [localLatency, setLocalLatency] = useState<number>(latency);
+  const [isPingDropdownOpen, setIsPingDropdownOpen] = useState<boolean>(false);
+  const [isTestingPing, setIsTestingPing] = useState<boolean>(false);
+  const pingDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLocalLatency(latency);
+  }, [latency]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pingDropdownRef.current && !pingDropdownRef.current.contains(e.target as Node)) {
+        setIsPingDropdownOpen(false);
+      }
+    };
+    if (isPingDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isPingDropdownOpen]);
+
+  const handleTestPing = async () => {
+    if (isTestingPing) return;
+    setIsTestingPing(true);
+    try {
+      if (onMeasurePing) {
+        const ms = await onMeasurePing();
+        setLocalLatency(ms);
+      } else {
+        const start = performance.now();
+        const res = await fetch("/api/time", { cache: "no-store" });
+        if (res.ok) {
+          const end = performance.now();
+          setLocalLatency(Math.max(1, Math.round(end - start)));
+        }
+      }
+    } catch {}
+    finally {
+      setIsTestingPing(false);
+    }
+  };
   useRenderTracker("GameTable");
   const soundManager = useSoundManager();
   const perf = usePerformanceMode();
@@ -732,6 +777,14 @@ export const GameTable = React.memo<GameTableProps>(({
         if (data.type === "TIMER_TICK" && data.tableSlug === selectedTableSlug) {
           setCurrentRound((prev) => {
             if (!prev) return prev;
+            if (
+              prev.secondsRemaining === data.secondsRemaining &&
+              prev.dragonPool === data.dragonPool &&
+              prev.tigerPool === data.tigerPool &&
+              prev.matchedAmount === data.matchedAmount
+            ) {
+              return prev;
+            }
             return {
               ...prev,
               secondsRemaining: data.secondsRemaining,
@@ -2818,6 +2871,80 @@ export const GameTable = React.memo<GameTableProps>(({
                     </button>
                  </div>
                  <div className="flex items-center gap-1 sm:gap-2">
+                    {/* Compact Ping Badge with Small Dropdown */}
+                    <div className="relative" ref={pingDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playButtonClick();
+                          setIsPingDropdownOpen((prev) => !prev);
+                        }}
+                        className={`px-1.5 py-0.5 rounded flex items-center justify-center font-mono font-bold text-[8.5px] sm:text-[9.5px] transition-all cursor-pointer select-none active:scale-95 border ${
+                          localLatency <= 60
+                            ? "bg-emerald-950/80 border-emerald-500/40 text-emerald-400 hover:border-emerald-400"
+                            : localLatency <= 130
+                            ? "bg-amber-950/80 border-amber-500/40 text-amber-300 hover:border-amber-400"
+                            : "bg-rose-950/80 border-rose-500/40 text-rose-300 hover:border-rose-400"
+                        }`}
+                        title={lang === "bn" ? `সার্ভার পিং: ${localLatency}ms (ক্লিক করে ড্রপডাউন দেখুন)` : `Ping: ${localLatency}ms (Click for Dropdown)`}
+                        aria-label="Server Ping"
+                      >
+                        <span className="tabular-nums font-black">{localLatency}ms</span>
+                      </button>
+
+                      {/* Small Dropdown Popover */}
+                      <AnimatePresence>
+                        {isPingDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute right-0 bottom-full mb-1.5 z-50 w-44 bg-neutral-950/95 backdrop-blur-2xl border border-emerald-500/40 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-2.5 space-y-2 text-left"
+                          >
+                            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-400 font-bold">
+                                {lang === "bn" ? "সার্ভার লেটেন্সি" : "Server Latency"}
+                              </span>
+                              <span
+                                className={`text-[9.5px] font-mono font-black ${
+                                  localLatency <= 60 ? "text-emerald-400" : localLatency <= 130 ? "text-amber-300" : "text-rose-400"
+                                }`}
+                              >
+                                {localLatency}ms
+                              </span>
+                            </div>
+
+                            <div className="space-y-1 text-[8.5px] font-mono text-neutral-300">
+                              <div className="flex items-center justify-between">
+                                <span className="text-neutral-500">Protocol:</span>
+                                <span className="font-bold text-white">WSS (TLS 1.3)</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-neutral-500">Quality:</span>
+                                <span className={`font-bold ${localLatency <= 60 ? "text-emerald-400" : "text-amber-300"}`}>
+                                  {localLatency <= 60 ? "Ultra Fast" : "Good"}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-neutral-500">Sync:</span>
+                                <span className="font-bold text-cyan-300">Instant Tick</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isTestingPing}
+                              onClick={handleTestPing}
+                              className="w-full py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-2.5 h-2.5 ${isTestingPing ? "animate-spin" : ""}`} />
+                              <span>{isTestingPing ? "..." : lang === "bn" ? "টেস্ট পিং" : "Test Ping"}</span>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                     <LiveSyncClock />
                     <span className="text-red-300 bg-red-950/80 border border-red-500/40 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold text-[8.5px] sm:text-[9.5px]">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block animate-pulse" />

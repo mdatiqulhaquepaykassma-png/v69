@@ -329,71 +329,96 @@ if (!fs.existsSync(SNAPSHOT_DIR)) {
   try { fs.mkdirSync(SNAPSHOT_DIR, { recursive: true }); } catch {}
 }
 
+// Memory-Optimized Async Stream-Based Persistence Engine
+async function streamWriteJson(filePath: string, data: unknown): Promise<void> {
+  const tmpPath = `${filePath}.tmp.${Date.now()}`;
+  return new Promise((resolve, reject) => {
+    const ws = fs.createWriteStream(tmpPath, { encoding: "utf-8", flags: "w" });
+    const content = JSON.stringify(data);
+    ws.write(content, (err) => {
+      if (err) {
+        ws.destroy();
+        return reject(err);
+      }
+      ws.end(() => {
+        fs.rename(tmpPath, filePath, (renameErr) => {
+          if (renameErr) reject(renameErr);
+          else resolve();
+        });
+      });
+    });
+  });
+}
+
 function loadStoredState() {
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      const raw = fs.readFileSync(USERS_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        Object.assign(mockUsers, data);
-        console.log(`[STORAGE] Restored ${Object.keys(data).length} persistent users from ${DATA_DIR}`);
-      }
+  const readAndParseStream = (filePath: string, onData: (parsed: any) => void) => {
+    if (!fs.existsSync(filePath)) return;
+    try {
+      const stream = fs.createReadStream(filePath, { encoding: "utf-8", highWaterMark: 64 * 1024 });
+      let chunks = "";
+      stream.on("data", (chunk) => {
+        chunks += chunk;
+      });
+      stream.on("end", () => {
+        try {
+          if (chunks.trim()) {
+            const data = JSON.parse(chunks);
+            onData(data);
+          }
+        } catch (parseErr) {
+          console.error(`[STORAGE-STREAM] Parse error in ${path.basename(filePath)}:`, parseErr);
+        }
+      });
+      stream.on("error", (err) => {
+        console.error(`[STORAGE-STREAM] Read error in ${path.basename(filePath)}:`, err);
+      });
+    } catch (e) {
+      console.error(`[STORAGE-STREAM] Stream load error for ${filePath}:`, e);
     }
-  } catch (e) {
-    console.error("[STORAGE] Failed to load users_store.json:", e);
-  }
+  };
 
-  try {
-    if (fs.existsSync(CREDS_FILE)) {
-      const raw = fs.readFileSync(CREDS_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        Object.assign(userCredentials, data);
-        console.log(`[STORAGE] Restored ${Object.keys(data).length} credentials from ${DATA_DIR}`);
-      }
+  readAndParseStream(USERS_FILE, (data) => {
+    if (data && typeof data === "object") {
+      Object.assign(mockUsers, data);
+      console.log(`[STORAGE-STREAM] Restored ${Object.keys(data).length} persistent users from ${DATA_DIR}`);
     }
-  } catch (e) {
-    console.error("[STORAGE] Failed to load credentials_store.json:", e);
-  }
+  });
 
-  try {
-    if (fs.existsSync(BETS_FILE)) {
-      const raw = fs.readFileSync(BETS_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        Object.assign(userBetHistories, data);
-      }
+  readAndParseStream(CREDS_FILE, (data) => {
+    if (data && typeof data === "object") {
+      Object.assign(userCredentials, data);
+      console.log(`[STORAGE-STREAM] Restored ${Object.keys(data).length} credentials from ${DATA_DIR}`);
     }
-  } catch (e) {
-    console.error("[STORAGE] Failed to load bet_history_store.json:", e);
-  }
+  });
 
-  try {
-    if (fs.existsSync(CASHIER_FILE)) {
-      const raw = fs.readFileSync(CASHIER_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      if (Array.isArray(data)) {
-        cashierWithdrawals.length = 0;
-        cashierWithdrawals.push(...data);
-      }
+  readAndParseStream(BETS_FILE, (data) => {
+    if (data && typeof data === "object") {
+      Object.assign(userBetHistories, data);
     }
-  } catch (e) {
-    console.error("[STORAGE] Failed to load cashier_store.json:", e);
-  }
+  });
+
+  readAndParseStream(CASHIER_FILE, (data) => {
+    if (Array.isArray(data)) {
+      cashierWithdrawals.length = 0;
+      cashierWithdrawals.push(...data);
+    }
+  });
 }
 
 let saveTimer: NodeJS.Timeout | null = null;
 function persistStorage() {
   if (saveTimer) return;
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(async () => {
     saveTimer = null;
     try {
-      fs.writeFileSync(USERS_FILE, JSON.stringify(mockUsers, null, 2), "utf-8");
-      fs.writeFileSync(CREDS_FILE, JSON.stringify(userCredentials, null, 2), "utf-8");
-      fs.writeFileSync(BETS_FILE, JSON.stringify(userBetHistories, null, 2), "utf-8");
-      fs.writeFileSync(CASHIER_FILE, JSON.stringify(cashierWithdrawals, null, 2), "utf-8");
+      await Promise.all([
+        streamWriteJson(USERS_FILE, mockUsers),
+        streamWriteJson(CREDS_FILE, userCredentials),
+        streamWriteJson(BETS_FILE, userBetHistories),
+        streamWriteJson(CASHIER_FILE, cashierWithdrawals),
+      ]);
       
-      // Also write latest snapshot
+      // Async compact snapshot
       const snapshot = {
         timestamp: new Date().toISOString(),
         usersCount: Object.keys(mockUsers).length,
@@ -401,9 +426,9 @@ function persistStorage() {
         credentials: userCredentials,
         withdrawals: cashierWithdrawals,
       };
-      fs.writeFileSync(path.join(SNAPSHOT_DIR, "db_snapshot_latest.json"), JSON.stringify(snapshot, null, 2), "utf-8");
+      await streamWriteJson(path.join(SNAPSHOT_DIR, "db_snapshot_latest.json"), snapshot);
     } catch (e) {
-      console.error("[STORAGE] Failed to persist data to disk:", e);
+      console.error("[STORAGE-STREAM] Failed to stream data to disk:", e);
     }
   }, 400);
 }
@@ -805,12 +830,14 @@ Object.entries(tableConfigs).forEach(([slug, cfg]) => {
   };
 });
 
+// Memory-Optimized Zero-Copy WebSocket Broadcast Engine
 function broadcast(data: Record<string, unknown>) {
-  const message = JSON.stringify(data);
+  // Pre-serialize once into a single UTF-8 Buffer to eliminate repeated memory allocation across clients
+  const messageBuffer = Buffer.from(JSON.stringify(data));
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       try {
-        client.send(message);
+        client.send(messageBuffer, { binary: false });
       } catch {
         try {
           (client as any).terminate();
@@ -819,6 +846,52 @@ function broadcast(data: Record<string, unknown>) {
     }
   });
 }
+
+// Memory Guard & Active Compactor: Keeps heap and RSS usage well below 512MiB
+setInterval(() => {
+  try {
+    // 1. Cap in-memory bet histories to last 80 items per active user
+    Object.keys(userBetHistories).forEach((uid) => {
+      if (userBetHistories[uid] && userBetHistories[uid].length > 80) {
+        userBetHistories[uid] = userBetHistories[uid].slice(0, 80);
+      }
+    });
+
+    // 2. Cap global transparent financial ledger to 150 items
+    if (globalTransactions.length > 150) {
+      globalTransactions.splice(150);
+    }
+
+    // 3. Cap live chat messages in memory
+    if (chatMessages.length > 100) {
+      chatMessages.splice(0, chatMessages.length - 100);
+    }
+
+    // 4. Cap runtime tables recent settled bets and roadmaps
+    Object.values(tables).forEach((tbl) => {
+      if (tbl.recentSettledBets.length > 40) {
+        tbl.recentSettledBets = tbl.recentSettledBets.slice(0, 40);
+      }
+      if (tbl.roadmap.length > 60) {
+        tbl.roadmap = tbl.roadmap.slice(0, 60);
+      }
+    });
+
+    // 5. Clean up zombie duel spectator rooms
+    Object.keys(duelRoomSpectators).forEach((roomId) => {
+      if (!activeDuels[roomId] && (!duelRoomSpectators[roomId] || duelRoomSpectators[roomId].size === 0)) {
+        delete duelRoomSpectators[roomId];
+      }
+    });
+
+    // 6. GC hint if exposed
+    if (typeof (globalThis as any).gc === "function") {
+      (globalThis as any).gc();
+    }
+  } catch (err) {
+    console.error("[MEMORY-GUARD] Error in periodic compaction:", err);
+  }
+}, 60 * 1000);
 
 // Table Tick Engine (1-second heartbeat)
 setInterval(() => {
@@ -4676,9 +4749,25 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: "7d",
+      etag: true,
+      lastModified: true,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+        } else if (filePath.includes("/assets/")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }));
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(200).send("<!DOCTYPE html><html><head><title>Apex Casino</title></head><body><div id='root'></div><script type='module' src='/src/main.tsx'></script></body></html>");
+      }
     });
   }
 

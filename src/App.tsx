@@ -189,6 +189,30 @@ export default function App() {
   const [isTransparencyOpen, setIsTransparencyOpen] = useState<boolean>(false);
   const [transparencyTab, setTransparencyTab] = useState<"charter" | "comparison" | "proofOfReserves" | "liveLedger" | "publicUsers">("charter");
   const [isReferralOpen, setIsReferralOpen] = useState<boolean>(false);
+  const [latency, setLatency] = useState<number>(24);
+  const latencyRef = useRef<number>(24);
+
+  const measurePing = useCallback(async (): Promise<number> => {
+    const start = performance.now();
+    try {
+      const res = await fetch("/api/time", { cache: "no-store" });
+      if (res.ok) {
+        const end = performance.now();
+        const rtt = Math.max(1, Math.round(end - start));
+        latencyRef.current = rtt;
+        setLatency(rtt);
+        return rtt;
+      }
+    } catch {}
+    return latencyRef.current;
+  }, []);
+
+  // Periodic background ping check every 15 seconds
+  useEffect(() => {
+    measurePing();
+    const interval = setInterval(measurePing, 15000);
+    return () => clearInterval(interval);
+  }, [measurePing]);
 
   // Cinematic Door Opening / Table Entry Transition State
   const [tableTransitionOpen, setTableTransitionOpen] = useState<boolean>(false);
@@ -495,11 +519,20 @@ export default function App() {
               balanceType: storedType || data.balanceType || "real",
             };
           }
+          const targetType = storedType || data.balanceType || prev.balanceType || "real";
+          if (
+            prev.balance === data.balance &&
+            prev.demoBalance === data.demoBalance &&
+            prev.balanceType === targetType &&
+            prev.username === data.username
+          ) {
+            return prev;
+          }
           return {
             ...prev,
             ...data,
             balance: typeof data.balance === "number" ? data.balance : prev.balance,
-            balanceType: storedType || data.balanceType || prev.balanceType || "real",
+            balanceType: targetType,
           };
         });
         localStorage.setItem("dt_user_id", userId);
@@ -849,6 +882,8 @@ export default function App() {
                   onRequireLogin={handleRequireLoginAuth}
                   onSelectTable={handleSelectTableWithTransition}
                   lang={lang}
+                  latency={latency}
+                  onMeasurePing={measurePing}
                 />
               </motion.div>
             )}

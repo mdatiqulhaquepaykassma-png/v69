@@ -9,6 +9,7 @@ import {
   History,
   Wallet,
   Plus,
+  Activity,
 } from "lucide-react";
 import { UserWallet } from "../types";
 import { BrandLogo } from "./BrandLogo";
