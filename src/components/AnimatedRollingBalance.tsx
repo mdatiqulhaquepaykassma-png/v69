@@ -102,15 +102,15 @@ export const AnimatedRollingBalance: React.FC<AnimatedRollingBalanceProps> = Rea
     <motion.span
       animate={
         pulseColor === "up"
-          ? { scale: [1, 1.05, 1], filter: ["brightness(1)", "brightness(1.3)", "brightness(1)"] }
+          ? { scale: [1, 1.04, 1] }
           : pulseColor === "down"
-          ? { scale: [1, 0.97, 1] }
+          ? { scale: [1, 0.98, 1] }
           : { scale: 1 }
       }
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      className={`inline-flex items-center tracking-tight font-black ${className} ${
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`inline-flex items-center tracking-tight font-black transition-colors duration-300 ${className} ${
         pulseColor === "up"
-          ? "text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+          ? "text-emerald-300 [text-shadow:0_0_10px_rgba(52,211,153,0.5)]"
           : pulseColor === "down"
           ? "text-amber-200"
           : ""

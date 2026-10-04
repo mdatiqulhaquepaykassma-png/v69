@@ -43,13 +43,14 @@ export default function App() {
   // Screen Wake Lock: Keeps display light always ON while on site
   const wakeLock = useWakeLock(true);
 
-  // Single-Device Session Enforcement Listener & Session Restore
+  // Single-Device Session Enforcement Listener & Self-Healing Cloud Restore
   useEffect(() => {
     const checkSession = async () => {
       try {
         const sid = localStorage.getItem("player_session_id");
         const storedUid = localStorage.getItem("dt_user_id");
         const storedUname = localStorage.getItem("dt_username");
+        const backupRaw = localStorage.getItem("dt_user_profile_backup");
 
         if (sid) {
           const res = await fetch("/api/auth/me", {
@@ -61,12 +62,36 @@ export default function App() {
             const data = await res.json();
             if (data.success && data.user) {
               setUser(data.user);
+              localStorage.setItem("dt_user_profile_backup", JSON.stringify(data.user));
               if (data.sessionId) {
                 localStorage.setItem("player_session_id", data.sessionId);
               }
               return;
             }
           }
+        }
+
+        // Self-Healing Cloud Sync: Re-hydrate database if server container was redeployed
+        if (backupRaw) {
+          try {
+            const parsedBackup = JSON.parse(backupRaw);
+            if (parsedBackup && parsedBackup.userId) {
+              const syncRes = await fetch("/api/sync/client-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clientProfile: parsedBackup }),
+              });
+              if (syncRes.ok) {
+                const syncData = await syncRes.json();
+                if (syncData.success && syncData.user) {
+                  setUser(syncData.user);
+                  localStorage.setItem("dt_user_id", syncData.user.userId);
+                  localStorage.setItem("dt_username", syncData.user.username);
+                  return;
+                }
+              }
+            }
+          } catch {}
         }
 
         // Fallback: If user ID exists in localStorage
@@ -479,6 +504,7 @@ export default function App() {
         });
         localStorage.setItem("dt_user_id", userId);
         localStorage.setItem("dt_username", username);
+        localStorage.setItem("dt_user_profile_backup", JSON.stringify(data));
       }
     } catch {
       // Ignore transient network errors
@@ -490,6 +516,7 @@ export default function App() {
     setAuthScreenMode(null);
     localStorage.setItem("dt_user_id", loggedInUser.userId);
     localStorage.setItem("dt_username", loggedInUser.username);
+    localStorage.setItem("dt_user_profile_backup", JSON.stringify(loggedInUser));
   };
 
   const handleLogout = async () => {

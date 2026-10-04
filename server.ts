@@ -298,14 +298,36 @@ const userCredentials: Record<string, UserCredential> = {};
 
 const mockUsers: Record<string, UserWallet> = {};
 
-// In-Memory with Automatic Local Persistence so user real balances are never reset
-const DATA_DIR = path.resolve(process.cwd(), ".data");
-if (!fs.existsSync(DATA_DIR)) {
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+// Multi-tier Persistent Storage Engine for Cloud Hosting (Render / Docker / VPS / Local)
+function getPersistenceDir(): string {
+  const envDir = process.env.PERSISTENT_DATA_DIR || process.env.DATA_DIR;
+  if (envDir && fs.existsSync(envDir)) {
+    return envDir;
+  }
+  // Standard Render / Docker Volume Mounts
+  if (fs.existsSync("/var/data")) {
+    return "/var/data";
+  }
+  if (fs.existsSync("/data")) {
+    return "/data";
+  }
+  const localDir = path.resolve(process.cwd(), ".data");
+  if (!fs.existsSync(localDir)) {
+    try { fs.mkdirSync(localDir, { recursive: true }); } catch {}
+  }
+  return localDir;
 }
 
+const DATA_DIR = getPersistenceDir();
 const USERS_FILE = path.join(DATA_DIR, "users_store.json");
 const CREDS_FILE = path.join(DATA_DIR, "credentials_store.json");
+const BETS_FILE = path.join(DATA_DIR, "bet_history_store.json");
+const CASHIER_FILE = path.join(DATA_DIR, "cashier_store.json");
+const SNAPSHOT_DIR = path.join(DATA_DIR, "snapshots");
+
+if (!fs.existsSync(SNAPSHOT_DIR)) {
+  try { fs.mkdirSync(SNAPSHOT_DIR, { recursive: true }); } catch {}
+}
 
 function loadStoredState() {
   try {
@@ -314,7 +336,7 @@ function loadStoredState() {
       const data = JSON.parse(raw);
       if (data && typeof data === "object") {
         Object.assign(mockUsers, data);
-        console.log(`[STORAGE] Restored ${Object.keys(data).length} users with persistent balances from disk.`);
+        console.log(`[STORAGE] Restored ${Object.keys(data).length} persistent users from ${DATA_DIR}`);
       }
     }
   } catch (e) {
@@ -327,11 +349,36 @@ function loadStoredState() {
       const data = JSON.parse(raw);
       if (data && typeof data === "object") {
         Object.assign(userCredentials, data);
-        console.log(`[STORAGE] Restored ${Object.keys(data).length} credentials from disk.`);
+        console.log(`[STORAGE] Restored ${Object.keys(data).length} credentials from ${DATA_DIR}`);
       }
     }
   } catch (e) {
     console.error("[STORAGE] Failed to load credentials_store.json:", e);
+  }
+
+  try {
+    if (fs.existsSync(BETS_FILE)) {
+      const raw = fs.readFileSync(BETS_FILE, "utf-8");
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        Object.assign(userBetHistories, data);
+      }
+    }
+  } catch (e) {
+    console.error("[STORAGE] Failed to load bet_history_store.json:", e);
+  }
+
+  try {
+    if (fs.existsSync(CASHIER_FILE)) {
+      const raw = fs.readFileSync(CASHIER_FILE, "utf-8");
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) {
+        cashierWithdrawals.length = 0;
+        cashierWithdrawals.push(...data);
+      }
+    }
+  } catch (e) {
+    console.error("[STORAGE] Failed to load cashier_store.json:", e);
   }
 }
 
@@ -343,8 +390,20 @@ function persistStorage() {
     try {
       fs.writeFileSync(USERS_FILE, JSON.stringify(mockUsers, null, 2), "utf-8");
       fs.writeFileSync(CREDS_FILE, JSON.stringify(userCredentials, null, 2), "utf-8");
+      fs.writeFileSync(BETS_FILE, JSON.stringify(userBetHistories, null, 2), "utf-8");
+      fs.writeFileSync(CASHIER_FILE, JSON.stringify(cashierWithdrawals, null, 2), "utf-8");
+      
+      // Also write latest snapshot
+      const snapshot = {
+        timestamp: new Date().toISOString(),
+        usersCount: Object.keys(mockUsers).length,
+        users: mockUsers,
+        credentials: userCredentials,
+        withdrawals: cashierWithdrawals,
+      };
+      fs.writeFileSync(path.join(SNAPSHOT_DIR, "db_snapshot_latest.json"), JSON.stringify(snapshot, null, 2), "utf-8");
     } catch (e) {
-      console.error("[STORAGE] Failed to persist data:", e);
+      console.error("[STORAGE] Failed to persist data to disk:", e);
     }
   }, 400);
 }
@@ -2636,6 +2695,87 @@ app.post("/api/wallet/transfer", (_req, res) => {
     success: false,
     error: "Direct peer-to-peer wallet transfers are disabled for anti-money laundering and account integrity compliance. Please use P2P challenge rooms for gameplay.",
     code: "P2P_TRANSFER_DISABLED",
+  });
+});
+
+// Persistent Cloud Deployment Re-hydration / Self-Healing Endpoint (Preserves data on Render redeployments)
+app.post("/api/sync/client-state", (req, res) => {
+  const { clientProfile, clientBets } = req.body || {};
+  if (!clientProfile || !clientProfile.userId) {
+    return res.status(400).json({ success: false, error: "Invalid client profile" });
+  }
+
+  const userId = clientProfile.userId;
+  let serverUser = mockUsers[userId];
+
+  if (!serverUser) {
+    // Re-hydrate user profile from persistent client backup
+    serverUser = {
+      userId: clientProfile.userId,
+      username: clientProfile.username || `Player_${userId.slice(0, 5)}`,
+      balance: typeof clientProfile.balance === "number" ? clientProfile.balance : 0,
+      demoBalance: typeof clientProfile.demoBalance === "number" ? clientProfile.demoBalance : 10000,
+      balanceType: clientProfile.balanceType || "real",
+      lockedBalance: clientProfile.lockedBalance || 0,
+      totalWon: clientProfile.totalWon || 0,
+      totalLost: clientProfile.totalLost || 0,
+      gamesPlayed: clientProfile.gamesPlayed || 0,
+      kycStatus: clientProfile.kycStatus || "none",
+      transactions: Array.isArray(clientProfile.transactions) ? clientProfile.transactions : [],
+    };
+    mockUsers[userId] = serverUser;
+
+    if (Array.isArray(clientBets) && clientBets.length > 0 && !userBetHistories[userId]) {
+      userBetHistories[userId] = clientBets;
+    }
+
+    persistStorage();
+    console.log(`[STORAGE] Re-hydrated user ${serverUser.username} (${serverUser.userId}) with balance ৳${serverUser.balance} from client state.`);
+  } else {
+    ensureUserStats(serverUser);
+    ensureUserCosmetics(serverUser);
+  }
+
+  return res.json({
+    success: true,
+    user: serverUser,
+    message: "User synchronized successfully",
+  });
+});
+
+// Database Export Endpoint for Cloud Migrations & Manual Backups
+app.get("/api/admin/export-database", requireAdmin, (_req, res) => {
+  res.setHeader("Content-Disposition", `attachment; filename=apex_dragon_tiger_db_${Date.now()}.json`);
+  res.setHeader("Content-Type", "application/json");
+  res.json({
+    exportedAt: new Date().toISOString(),
+    users: mockUsers,
+    credentials: userCredentials,
+    betHistories: userBetHistories,
+    cashierWithdrawals: cashierWithdrawals,
+  });
+});
+
+// Database Import Endpoint for Instant Cloud Restore
+app.post("/api/admin/import-database", requireAdmin, (req, res) => {
+  const { users, credentials, betHistories, cashierWithdrawals: withdrawals } = req.body || {};
+  if (users && typeof users === "object") {
+    Object.assign(mockUsers, users);
+  }
+  if (credentials && typeof credentials === "object") {
+    Object.assign(userCredentials, credentials);
+  }
+  if (betHistories && typeof betHistories === "object") {
+    Object.assign(userBetHistories, betHistories);
+  }
+  if (Array.isArray(withdrawals)) {
+    cashierWithdrawals.length = 0;
+    cashierWithdrawals.push(...withdrawals);
+  }
+  persistStorage();
+  res.json({
+    success: true,
+    message: `Database restored with ${Object.keys(mockUsers).length} users.`,
   });
 });
 
