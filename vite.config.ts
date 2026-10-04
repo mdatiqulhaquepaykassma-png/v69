@@ -45,8 +45,8 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,mp3,wav,webmanifest,json}'],
-          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,ico,svg,webmanifest}'],
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           clientsClaim: true,
           skipWaiting: true,
           cleanupOutdatedCaches: true,
@@ -119,14 +119,18 @@ export default defineConfig(() => {
           enabled: false,
         },
       }),
-      visualizer({
-        filename: 'stats.html',
-        title: 'Apex Casino - Dependencies & Bundle Stats',
-        open: false,
-        gzipSize: true,
-        brotliSize: true,
-        template: 'treemap',
-      }),
+      ...(process.env.ANALYZE === 'true'
+        ? [
+            visualizer({
+              filename: 'stats.html',
+              title: 'Apex Casino - Dependencies & Bundle Stats',
+              open: false,
+              gzipSize: true,
+              brotliSize: true,
+              template: 'treemap',
+            }),
+          ]
+        : []),
     ],
     resolve: {
       alias: {
