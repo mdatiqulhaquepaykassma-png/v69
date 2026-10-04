@@ -1,0 +1,324 @@
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Shield,
+  Wallet,
+  Gamepad2,
+  ChevronDown,
+  Swords,
+  Trophy,
+  Smartphone,
+  Plus,
+  Volume2,
+  VolumeX,
+  History,
+} from "lucide-react";
+import { UserWallet } from "../types";
+import { formatCurrency, CURRENCIES, getStoredCurrencyCode } from "../utils/currency";
+import { BrandLogo } from "./BrandLogo";
+import { BUILD_NUMBER } from "../config/version";
+
+interface NavbarProps {
+  user: UserWallet | null;
+  activeTab: "game" | "p2p" | "leaderboard";
+  setActiveTab: (tab: "game" | "p2p" | "leaderboard") => void;
+  selectedTable: "express" | "classic" | "vip";
+  onSelectTable: (table: "express" | "classic" | "vip") => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+  voiceEnabled?: boolean;
+  onToggleVoice?: () => void;
+  onOpenWallet: () => void;
+  onOpenMenu: () => void;
+  onOpenLogin?: () => void;
+  onOpenRegister?: () => void;
+  onOpenInstallApp?: () => void;
+  isStandalone?: boolean;
+  isInstalled?: boolean;
+  onOpenOnlineUsers?: () => void;
+  onOpenQuickDeposit?: () => void;
+  onOpenProfile?: () => void;
+  onOpenProvablyFair?: () => void;
+  onOpenRoadmap?: () => void;
+  onOpenAdmin?: () => void;
+  onOpenMerchant?: () => void;
+  onOpenSiteLiquidity?: () => void;
+  onOpenBetHistory?: () => void;
+  onOpenRules?: () => void;
+  onOpenTransparency?: () => void;
+  onOpenPublicUsers?: () => void;
+  onOpenReferral?: () => void;
+  onOpenCurrencySelector?: () => void;
+  selectedCurrency?: string;
+  onLogout?: () => void;
+  onToggleBalanceType?: () => void;
+  lang?: "bn" | "en";
+  onToggleLang?: () => void;
+  telemetryPlayerCount?: number;
+  tablePlayerCounts?: {
+    express: number;
+    classic: number;
+    vip: number;
+  };
+}
+
+export const Navbar = React.memo<NavbarProps>(({
+  user,
+  activeTab,
+  setActiveTab,
+  selectedTable,
+  onSelectTable,
+  soundEnabled = true,
+  onToggleSound,
+  onOpenWallet,
+  onOpenBetHistory,
+  onOpenMenu,
+  onOpenLogin,
+  onOpenRegister,
+  onOpenInstallApp,
+  isStandalone = false,
+  selectedCurrency,
+  lang = "bn",
+  telemetryPlayerCount = 1,
+  tablePlayerCounts,
+}) => {
+  const [tableDropdownOpen, setTableDropdownOpen] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const activeCurrencyCode = selectedCurrency || getStoredCurrencyCode();
+  const activeCurrencyConfig = CURRENCIES[activeCurrencyCode] || CURRENCIES.INR;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setTableDropdownOpen(false);
+      }
+    };
+    if (tableDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [tableDropdownOpen]);
+
+  // Real active counts calculation per table
+  const realTableCounts = {
+    express: tablePlayerCounts?.express ?? (selectedTable === "express" ? Math.max(1, telemetryPlayerCount) : 0),
+    classic: tablePlayerCounts?.classic ?? (selectedTable === "classic" ? Math.max(1, telemetryPlayerCount) : 0),
+    vip: tablePlayerCounts?.vip ?? (selectedTable === "vip" ? Math.max(1, telemetryPlayerCount) : 0),
+  };
+
+  const tableOptions: Array<{
+    id: "express" | "classic" | "vip";
+    name: string;
+    icon: string;
+    speed: string;
+    minBetFormatted: string;
+    maxBetFormatted: string;
+    realActiveCount: number;
+  }> = [
+    {
+      id: "express",
+      name: "Express",
+      icon: "⚡",
+      speed: "10s",
+      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      maxBetFormatted: formatCurrency(1000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      realActiveCount: realTableCounts.express,
+    },
+    {
+      id: "classic",
+      name: "Classic",
+      icon: "🎯",
+      speed: "15s",
+      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      maxBetFormatted: formatCurrency(10000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      realActiveCount: realTableCounts.classic,
+    },
+    {
+      id: "vip",
+      name: "VIP",
+      icon: "👑",
+      speed: "20s",
+      minBetFormatted: formatCurrency(1 / activeCurrencyConfig.rateFromBase, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      maxBetFormatted: formatCurrency(100000, { currencyCode: activeCurrencyCode, convertFromBase: true }),
+      realActiveCount: realTableCounts.vip,
+    },
+  ];
+
+  const currentTable = tableOptions.find((t) => t.id === selectedTable) || tableOptions[0];
+  const currentBalance = user ? (user.balanceType === "real" ? user.balance : user.demoBalance) : 0;
+
+  return (
+    <header className="bg-neutral-950/95 backdrop-blur-2xl border-b border-amber-500/20 sticky top-0 z-50 px-2 sm:px-4 lg:px-6 h-12 sm:h-14 flex items-center shadow-[0_4px_25px_rgba(0,0,0,0.85)] w-full select-none m-0">
+      <div className="max-w-[1600px] w-full mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
+        
+        {/* Zone 1: Brand & Table Selector */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div 
+            onClick={() => setActiveTab("game")}
+            className="flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
+          >
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl overflow-hidden border border-amber-400/60 shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-transform group-hover:scale-105 shrink-0 bg-black flex items-center justify-center">
+              <BrandLogo priority alt="APEX Dragon Tiger" />
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-xs sm:text-sm font-black tracking-[0.15em] text-white">SANCTUM</span>
+              <span className="text-[7px] sm:text-[7.5px] font-bold text-amber-400 uppercase tracking-widest mt-0.5">DRAGON TIGER</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Zone 2: Navigation Tabs (Desktop & Tablet) */}
+        <nav className="hidden lg:flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 shadow-inner">
+          <button
+            onClick={() => setActiveTab('game')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'game' 
+                ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-neutral-950 shadow-md font-black" 
+                : "text-neutral-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Gamepad2 className="w-3.5 h-3.5" />
+            <span>Arena</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('p2p')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'p2p' 
+                ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-neutral-950 shadow-md font-black" 
+                : "text-neutral-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Swords className="w-3.5 h-3.5" />
+            <span>1v1 Duel</span>
+          </button>
+
+          {/* INSTALL APP BUTTON (In the middle between DUAL and ELITE) */}
+          {onOpenInstallApp && !isStandalone && (
+            <button
+              onClick={onOpenInstallApp}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 shadow-sm active:scale-95"
+              title={lang === "bn" ? "অ্যাপ ইনস্টল ও ওপেন গাইড" : "Install Mobile App"}
+            >
+              <Smartphone className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>{lang === "bn" ? "ইনস্টল" : "Install"}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('leaderboard')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'leaderboard' 
+                ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-neutral-950 shadow-md font-black" 
+                : "text-neutral-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Elite</span>
+          </button>
+        </nav>
+
+        {/* Zone 3: Telemetry, Wallet & Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+
+          {/* Sound Toggle Button (Hidden on Mobile, available in Menu) */}
+          {onToggleSound && (
+            <button
+              onClick={onToggleSound}
+              className="hidden md:flex w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 items-center justify-center text-neutral-300 hover:text-amber-300 transition-all active:scale-90 cursor-pointer"
+              title={soundEnabled ? "Mute Game Sound" : "Enable Game Sound"}
+            >
+              {soundEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 text-neutral-500" />
+              )}
+            </button>
+          )}
+
+          {/* Bet History Quick Access Button (Hidden on Mobile, available in Side Menu) */}
+          {onOpenBetHistory && (
+            <button
+              onClick={onOpenBetHistory}
+              className="hidden lg:flex items-center gap-1 bg-gradient-to-r from-neutral-900 to-amber-950/60 hover:from-neutral-800 hover:to-amber-900/80 border border-amber-500/40 hover:border-amber-400 px-2 sm:px-2.5 py-1 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer text-amber-300 text-xs font-bold"
+              title={lang === "bn" ? "বেটিং হিস্ট্রি দেখুন" : "Bet History"}
+            >
+              <History className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[9.5px] font-black uppercase tracking-wider font-mono">
+                {lang === "bn" ? "হিস্ট্রি" : "History"}
+              </span>
+            </button>
+          )}
+
+          {/* Wallet / Balance Indicator for Logged-In Users OR Login for Guests */}
+          {!user ? (
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <button
+                type="button"
+                onClick={onOpenLogin}
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-neutral-950 font-black text-xs transition-all shadow-md shadow-amber-950/40 cursor-pointer active:scale-95 shrink-0"
+              >
+                {lang === "bn" ? "লগইন" : "Login"}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenRegister || onOpenLogin}
+                className="hidden sm:inline-flex px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/15 hover:border-amber-400/50 transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+              >
+                {lang === "bn" ? "রেজিস্টার" : "Sign Up"}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenWallet}
+              className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-neutral-900 to-neutral-950 border border-amber-500/35 hover:border-amber-400/70 px-2 sm:px-2.5 py-1 rounded-xl transition-all shadow-inner active:scale-95 group cursor-pointer shrink-0"
+            >
+              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                <Wallet className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+              </div>
+              <div className="flex flex-col items-start leading-none">
+                <span className="text-[7px] font-bold text-neutral-400 uppercase tracking-wider hidden sm:inline">
+                  {user.balanceType === "real" ? "REAL" : "DEMO"}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-black text-amber-300 font-mono tracking-tight">
+                  {formatCurrency(currentBalance, {
+                    currencyCode: activeCurrencyCode,
+                    convertFromBase: true,
+                  })}
+                </span>
+              </div>
+              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded bg-amber-400 text-neutral-950 flex items-center justify-center shadow ml-0.5">
+                <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 stroke-[3]" />
+              </div>
+            </button>
+          )}
+
+          {/* Menu Button with Build Indicator */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onOpenMenu}
+              className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white transition-all active:scale-90 cursor-pointer shrink-0 group"
+              title={`Menu (Build #${BUILD_NUMBER})`}
+              aria-label="Menu"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none stroke-[2.2]">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+              <span className="hidden xl:block absolute -top-1 -right-1 text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1 py-0.2 rounded font-mono font-bold pointer-events-none">
+                {BUILD_NUMBER.slice(0, 6)}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+});
+
+export default Navbar;
