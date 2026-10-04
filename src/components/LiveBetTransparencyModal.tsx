@@ -38,7 +38,7 @@ interface LiveBetTransparencyModalProps {
   isBettingOpen?: boolean;
 }
 
-export const LiveBetTransparencyModal: React.FC<LiveBetTransparencyModalProps> = ({
+export const LiveBetTransparencyModal = React.memo<LiveBetTransparencyModalProps>(({
   isOpen,
   onClose,
   currentRoundBets,
@@ -50,6 +50,7 @@ export const LiveBetTransparencyModal: React.FC<LiveBetTransparencyModalProps> =
   onFollowBet,
   isBettingOpen = false,
 }) => {
+  if (!isOpen) return null;
   useRenderTracker("LiveBetTransparencyModal", { isOpen });
   const [activeTab, setActiveTab] = useState<"liveBets" | "winLoss" | "provablyFair">("liveBets");
   const [filterSide, setFilterSide] = useState<"ALL" | "DRAGON" | "TIGER" | "TIE" | "WHALES" | "MINE">("ALL");
@@ -609,4 +610,4 @@ export const LiveBetTransparencyModal: React.FC<LiveBetTransparencyModalProps> =
       </div>
     </AnimatePresence>
   );
-};
+});

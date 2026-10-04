@@ -1741,14 +1741,39 @@ app.post("/api/game/cancel-bet", requireUser, (req, res) => {
 });
 
 // Demo Reset Endpoint: 1-tap reload demo balance to ৳10,000
-app.post(["/api/wallet/reset-demo", "/api/wallet/:userId/reset-demo"], requireUser, (req, res) => {
-  const userId = (req as any).userId;
-  const user = mockUsers[userId];
-  if (!user) {
-    return res.status(404).json({ success: false, error: "User not found" });
+app.post(["/api/wallet/reset-demo", "/api/wallet/:userId/reset-demo"], (req, res) => {
+  const sid = readCookie(req, "player_session") || (typeof req.headers["x-session-id"] === "string" ? req.headers["x-session-id"] : null);
+  const session = sid ? getSession(sid) : null;
+  const userId =
+    session?.userId ||
+    req.params.userId ||
+    (typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null) ||
+    req.body?.userId;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, error: "User ID required" });
   }
 
-  user.demoBalance = 10000;
+  let user = mockUsers[userId];
+  if (!user) {
+    mockUsers[userId] = {
+      userId,
+      username: `Player_${userId.slice(0, 5)}`,
+      balance: 0,
+      demoBalance: 10000,
+      balanceType: "demo",
+      lockedBalance: 0,
+      totalWon: 0,
+      totalLost: 0,
+      gamesPlayed: 0,
+      kycStatus: "none",
+      transactions: [],
+    };
+    user = mockUsers[userId];
+  } else {
+    user.demoBalance = 10000;
+  }
+
   addTransactionToUser(user, {
     id: `tx_${Date.now()}_demo_refill`,
     type: "faucet",
@@ -1765,12 +1790,36 @@ app.post(["/api/wallet/reset-demo", "/api/wallet/:userId/reset-demo"], requireUs
 });
 
 // Toggle Balance Mode Endpoint: Switch between 'real' and 'demo' balance
-app.post(["/api/wallet/toggle-balance", "/api/wallet/:userId/toggle-balance"], requireUser, (req, res) => {
-  const userId = (req as any).userId;
+app.post(["/api/wallet/toggle-balance", "/api/wallet/:userId/toggle-balance"], (req, res) => {
+  const sid = readCookie(req, "player_session") || (typeof req.headers["x-session-id"] === "string" ? req.headers["x-session-id"] : null);
+  const session = sid ? getSession(sid) : null;
+  const userId =
+    session?.userId ||
+    req.params.userId ||
+    (typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null) ||
+    req.body?.userId;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, error: "User ID required" });
+  }
+
   const { balanceType } = req.body;
-  const user = mockUsers[userId];
+  let user = mockUsers[userId];
   if (!user) {
-    return res.status(404).json({ success: false, error: "User not found" });
+    mockUsers[userId] = {
+      userId,
+      username: `Player_${userId.slice(0, 5)}`,
+      balance: 0,
+      demoBalance: 10000,
+      balanceType: "real",
+      lockedBalance: 0,
+      totalWon: 0,
+      totalLost: 0,
+      gamesPlayed: 0,
+      kycStatus: "none",
+      transactions: [],
+    };
+    user = mockUsers[userId];
   }
 
   if (balanceType === "real" || balanceType === "demo") {

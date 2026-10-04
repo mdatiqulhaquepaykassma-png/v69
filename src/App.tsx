@@ -235,7 +235,7 @@ export default function App() {
     leaderboard: 2,
   };
 
-  const handleSelectTableWithTransition = (tableSlug: "express" | "classic" | "vip") => {
+  const handleSelectTableWithTransition = useCallback((tableSlug: "express" | "classic" | "vip") => {
     const tableInfo = {
       express: { name: "Express Turbo", icon: "⚡" },
       classic: { name: "Classic Sanctum", icon: "🎯" },
@@ -248,11 +248,14 @@ export default function App() {
     setSelectedTable(tableSlug);
     perfMonitor.recordInteraction(`Select Table: ${tableSlug}`);
 
-    if (activeTab !== "game") {
-      setTabDirection(-1);
-      setActiveTab("game");
-    }
-  };
+    setActiveTab((prev) => {
+      if (prev !== "game") {
+        setTabDirection(-1);
+        return "game";
+      }
+      return prev;
+    });
+  }, []);
 
   const handleCloseTableTransition = useCallback(() => {
     setTableTransitionOpen(false);
@@ -263,13 +266,49 @@ export default function App() {
     isInitialMount.current = false;
   }, []);
 
-  const handleTabChange = (newTab: "game" | "p2p" | "leaderboard") => {
-    if (newTab === activeTab) return;
-    const dir = tabIndexMap[newTab] > tabIndexMap[activeTab] ? 1 : -1;
-    setTabDirection(dir);
-    setActiveTab(newTab);
-    perfMonitor.recordInteraction(`Switch Tab to: ${newTab}`);
-  };
+  const handleTabChange = useCallback((newTab: "game" | "p2p" | "leaderboard") => {
+    setActiveTab((prevTab) => {
+      if (newTab === prevTab) return prevTab;
+      const dir = tabIndexMap[newTab] > tabIndexMap[prevTab] ? 1 : -1;
+      setTabDirection(dir);
+      perfMonitor.recordInteraction(`Switch Tab to: ${newTab}`);
+      return newTab;
+    });
+  }, []);
+
+  const handleOpenBetHistoryModal = useCallback(() => {
+    setUser((currentUser) => {
+      if (!currentUser) {
+        setAuthScreenMode("signin");
+      } else {
+        setIsBetHistoryOpen(true);
+      }
+      return currentUser;
+    });
+  }, []);
+
+  const handleOpenGameRulesModal = useCallback(() => {
+    setIsGameRulesOpen(true);
+  }, []);
+
+  const handleOpenProfileModal = useCallback(() => {
+    setUser((currentUser) => {
+      if (!currentUser) {
+        setAuthScreenMode("signin");
+      } else {
+        setIsProfileOpen(true);
+      }
+      return currentUser;
+    });
+  }, []);
+
+  const handleNavigateToP2PTab = useCallback(() => {
+    handleTabChange("p2p");
+  }, [handleTabChange]);
+
+  const handleRequireLoginAuth = useCallback(() => {
+    setAuthScreenMode("signin");
+  }, []);
 
   const tabSlideVariants = {
     initial: (dir: number) => {
@@ -407,7 +446,11 @@ export default function App() {
       }
       const data = await res.json();
       if (data && data.userId) {
-        setUser(data);
+        const storedType = localStorage.getItem("dt_balance_type") as "real" | "demo" | null;
+        setUser({
+          ...data,
+          balanceType: storedType || data.balanceType || "real",
+        });
         localStorage.setItem("dt_user_id", userId);
         localStorage.setItem("dt_username", username);
       }
@@ -459,23 +502,32 @@ export default function App() {
     sound.voiceEnabled = next;
   };
 
-  const handleToggleBalanceType = async () => {
+  const handleToggleBalanceType = useCallback(async () => {
     if (!user) return;
     const targetType: "demo" | "real" = user.balanceType === "real" ? "demo" : "real";
     
-    // 1. Instant optimistic UI update
+    // 1. Instant optimistic UI update and local persistence
     setUser((prev) => (prev ? { ...prev, balanceType: targetType } : null));
+    localStorage.setItem("dt_balance_type", targetType);
     sound.playButtonClick();
 
     try {
-      const res = await fetch(`/api/wallet/${user.userId}/toggle-balance`, {
+      const sid = localStorage.getItem("player_session_id") || "";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-user-id": user.userId,
+      };
+      if (sid) headers["x-session-id"] = sid;
+
+      const res = await fetch(`/api/wallet/${encodeURIComponent(user.userId)}/toggle-balance`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ balanceType: targetType }),
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ balanceType: targetType, userId: user.userId, sessionId: sid }),
       });
       const data = await res.json();
       
-      // 2. Explicit state check to ensure UI reflects target balance mode regardless of latency
+      // 2. Explicit state check to ensure UI reflects target balance mode
       if (data.success && data.user) {
         setUser((prev) => {
           const resolvedType = (data.user.balanceType || targetType) as "demo" | "real";
@@ -485,16 +537,15 @@ export default function App() {
             balanceType: resolvedType,
           };
         });
+        localStorage.setItem("dt_balance_type", data.user.balanceType || targetType);
       } else {
-        // Fallback: reinforce optimistic target balance mode
         setUser((prev) => (prev ? { ...prev, balanceType: targetType } : null));
       }
     } catch (e) {
       console.error("Failed to toggle balance type on server:", e);
-      // Retain optimistic balance mode on transient network error
       setUser((prev) => (prev ? { ...prev, balanceType: targetType } : null));
     }
-  };
+  }, [user]);
 
   const handleOpenRoadmap = async () => {
     try {
@@ -737,24 +788,12 @@ export default function App() {
                   onUpdateWallet={setUser}
                   onOpenProvablyFair={handleOpenProvablyFair}
                   onOpenRoadmap={handleOpenRoadmap}
-                  onOpenBetHistory={() => {
-                    if (!user) {
-                      setAuthScreenMode("signin");
-                    } else {
-                      setIsBetHistoryOpen(true);
-                    }
-                  }}
-                  onOpenRules={() => setIsGameRulesOpen(true)}
-                  onOpenProfile={() => {
-                    if (!user) {
-                      setAuthScreenMode("signin");
-                    } else {
-                      setIsProfileOpen(true);
-                    }
-                  }}
+                  onOpenBetHistory={handleOpenBetHistoryModal}
+                  onOpenRules={handleOpenGameRulesModal}
+                  onOpenProfile={handleOpenProfileModal}
                   onToggleBalanceType={handleToggleBalanceType}
-                  onNavigateToP2P={() => handleTabChange("p2p")}
-                  onRequireLogin={() => setAuthScreenMode("signin")}
+                  onNavigateToP2P={handleNavigateToP2PTab}
+                  onRequireLogin={handleRequireLoginAuth}
                   onSelectTable={handleSelectTableWithTransition}
                   lang={lang}
                 />

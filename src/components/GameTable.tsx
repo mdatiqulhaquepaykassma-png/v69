@@ -104,6 +104,54 @@ export const triggerBigWinConfetti = (isMassiveWin: boolean = false) => {
   }
 };
 
+/**
+ * Isolated Real-Time Server-Synchronized Clock.
+ * Encapsulated in its own component to prevent churn / re-rendering of parent GameTable.
+ */
+const LiveSyncClock = React.memo(() => {
+  const [timeStr, setTimeStr] = useState<string>("");
+  const serverOffsetRef = useRef<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/time")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.serverTime === "number" && isMounted) {
+          serverOffsetRef.current = data.serverTime - Date.now();
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let intervalId: any;
+    const update = () => {
+      const now = new Date(Date.now() + serverOffsetRef.current);
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const ms = String(Math.floor(now.getMilliseconds() / 100));
+      setTimeStr(`${hh}:${mm}:${ss}.${ms}`);
+    };
+    update();
+    intervalId = setInterval(update, 100);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  if (!timeStr) return null;
+
+  return (
+    <span className="text-[8px] sm:text-[9px] font-mono font-black text-amber-200 bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded flex items-center shadow-sm">
+      <span className="tabular-nums">{timeStr}</span>
+    </span>
+  );
+});
+
 interface GameTableProps {
   user: UserWallet | null;
   selectedTableSlug: "express" | "classic" | "vip";
@@ -187,7 +235,7 @@ export const GameTable = React.memo<GameTableProps>(({
   const baseLimits = tableConfigs[selectedTableSlug] || tableConfigs.express;
   
   // Dynamically calculate limits so the minimum bet is exactly 1 BDT / 1 INR / 1 USD depending on active rate!
-  const activeLimits = {
+  const activeLimits = useMemo(() => ({
     ...baseLimits,
     minBet: 1 / activeCurrency.rateFromBase,
     chips: [
@@ -200,10 +248,12 @@ export const GameTable = React.memo<GameTableProps>(({
       1000 / activeCurrency.rateFromBase,
       5000 / activeCurrency.rateFromBase,
     ].filter(c => c >= 1 / activeCurrency.rateFromBase)
-  };
+  }), [baseLimits, activeCurrency.rateFromBase]);
 
-  const formatAmt = (amt: number | null | undefined, compact = false) =>
-    formatCurrency(amt, { currencyCode: activeCurrency.code, convertFromBase: true, compact });
+  const formatAmt = React.useCallback((amt: number | null | undefined, compact = false) =>
+    formatCurrency(amt, { currencyCode: activeCurrency.code, convertFromBase: true, compact }),
+    [activeCurrency.code]
+  );
 
   // Streamlined Betting state (Side -> Amount -> Place)
   const [selectedSide, setSelectedSide] = useState<string | null>(null);
@@ -252,50 +302,6 @@ export const GameTable = React.memo<GameTableProps>(({
   // Physical 3D Casino Table Parallax Engine (CSS transform variables)
   const { tableRef } = useTableParallax();
 
-  // Real-Time High Precision Clock (hh:mm:ss:ms AM/PM) synchronized with Server NTP timestamp
-  const [liveClockTime, setLiveClockTime] = useState<string>("");
-  const serverOffsetRef = useRef<number>(0);
-
-  // Fetch server NTP timestamp on component mount to synchronize time accurately
-  useEffect(() => {
-    let isMounted = true;
-    fetch("/api/time")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && typeof data.serverTime === "number" && isMounted) {
-          // Direct server time difference without latency adjustment as requested
-          serverOffsetRef.current = data.serverTime - Date.now();
-        }
-      })
-      .catch(() => {
-        // Fallback gracefully to local system clock if network fetch fails
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let animFrameId: number;
-    const updateClock = () => {
-      // Calculate synchronized time using server offset
-      const now = new Date(Date.now() + serverOffsetRef.current);
-      const hours = now.getHours();
-
-      const hh = String(hours).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      const ss = String(now.getSeconds()).padStart(2, "0");
-      const ms = String(now.getMilliseconds()).padStart(3, "0");
-
-      setLiveClockTime(`${hh}:${mm}:${ss}:${ms}`);
-      animFrameId = requestAnimationFrame(updateClock);
-    };
-
-    animFrameId = requestAnimationFrame(updateClock);
-    return () => cancelAnimationFrame(animFrameId);
-  }, []);
-  
   // Pro Auto Bet Engine 2.0 State
   type AutoBetStrategy = "FLAT" | "MARTINGALE" | "ANTI_MARTINGALE" | "ALTERNATE";
 
@@ -469,15 +475,6 @@ export const GameTable = React.memo<GameTableProps>(({
     };
   }, []);
 
-  const [broadcastTime, setBroadcastTime] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBroadcastTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const activeBalance = user ? (user.balanceType === "real" ? user.balance : user.demoBalance) : 0;
 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(() => !!document.fullscreenElement);
@@ -528,7 +525,8 @@ export const GameTable = React.memo<GameTableProps>(({
         const minScale = Math.min(scaleByWidth, scaleByHeight);
         // Ensure scale stays within [0.82, 1.08] so cards remain clear, prominent, and proportional
         const boundedScale = Math.min(Math.max(minScale, 0.82), 1.08);
-        setCardScale(Number(boundedScale.toFixed(3)));
+        const rounded = Number(boundedScale.toFixed(2));
+        setCardScale((prev) => (Math.abs(prev - rounded) > 0.02 ? rounded : prev));
       }
     });
 
@@ -2175,18 +2173,20 @@ export const GameTable = React.memo<GameTableProps>(({
         </AnimatePresence>
 
         {/* LIVE BETS & WIN/LOSS TRANSPARENCY MODAL */}
-        <LiveBetTransparencyModal
-          isOpen={showLiveTransparencyModal}
-          onClose={() => setShowLiveTransparencyModal(false)}
-          currentRoundBets={currentRoundBets}
-          recentSettledBets={recentSettledBets}
-          currentRound={currentRound}
-          currentUser={user}
-          lang={lang}
-          formatAmt={formatAmt}
-          onFollowBet={handleFollowBet}
-          isBettingOpen={isBettingOpen}
-        />
+        {showLiveTransparencyModal && (
+          <LiveBetTransparencyModal
+            isOpen={showLiveTransparencyModal}
+            onClose={() => setShowLiveTransparencyModal(false)}
+            currentRoundBets={currentRoundBets}
+            recentSettledBets={recentSettledBets}
+            currentRound={currentRound}
+            currentUser={user}
+            lang={lang}
+            formatAmt={formatAmt}
+            onFollowBet={handleFollowBet}
+            isBettingOpen={isBettingOpen}
+          />
+        )}
 
         {/* MY BETS / HISTORY MODAL (Screenshot 2 Exact Implementation) */}
         <AnimatePresence>
@@ -2805,11 +2805,7 @@ export const GameTable = React.memo<GameTableProps>(({
                     </button>
                  </div>
                  <div className="flex items-center gap-1 sm:gap-2">
-                    {liveClockTime && (
-                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-amber-200 bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded flex items-center shadow-sm">
-                        <span className="tabular-nums">{liveClockTime}</span>
-                      </span>
-                    )}
+                    <LiveSyncClock />
                     <span className="text-red-300 bg-red-950/80 border border-red-500/40 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold text-[8.5px] sm:text-[9.5px]">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block animate-pulse" />
                       D:{roadmap.filter(r => r.result === "DRAGON").length}
@@ -3123,11 +3119,28 @@ export const GameTable = React.memo<GameTableProps>(({
                       )}
                     </motion.button>
 
-                    {/* Real Balance Pill - Always Visible and Prominently Styled */}
-                    <div className="flex items-center gap-1 bg-gradient-to-r from-neutral-950 to-amber-950/70 border border-amber-500/50 px-1.5 xs:px-2 py-0.5 sm:py-1 rounded-lg text-[7.5px] xs:text-[8.5px] sm:text-[9.5px] font-mono shrink-0 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
-                       <span className="text-amber-400 font-bold uppercase tracking-wider text-[6.5px] xs:text-[7.5px] sm:text-[8px]">Bal:</span>
-                       <span className="text-amber-300 font-black">{formatAmt(activeBalance)}</span>
-                    </div>
+                    {/* Interactive Real / Demo Balance Pill with 1-Tap Switch */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playButtonClick();
+                        if (onToggleBalanceType) onToggleBalanceType();
+                      }}
+                      className={`flex items-center gap-1 sm:gap-1.5 px-2 py-0.5 sm:py-1 rounded-lg text-[8px] xs:text-[8.5px] sm:text-[9.5px] font-mono shrink-0 shadow-md transition-all active:scale-95 cursor-pointer border ${
+                        user?.balanceType === "real"
+                          ? "bg-gradient-to-r from-emerald-950/90 via-neutral-950 to-neutral-900 border-emerald-500/50 hover:border-emerald-400 text-emerald-300"
+                          : "bg-gradient-to-r from-purple-950/90 via-neutral-950 to-neutral-900 border-purple-500/50 hover:border-purple-400 text-purple-300"
+                      }`}
+                      title={lang === "bn" ? "রিয়েল ও ডেমো ব্যালেন্স পরিবর্তন করতে ক্লিক করুন" : "Click to Switch Real ⇄ Demo Mode"}
+                    >
+                      <span className={`px-1 py-0.2 rounded text-[6.5px] xs:text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider ${
+                        user?.balanceType === "real" ? "bg-emerald-500 text-neutral-950" : "bg-purple-500 text-white"
+                      }`}>
+                        {user?.balanceType === "real" ? "REAL" : "DEMO"}
+                      </span>
+                      <span className="text-amber-300 font-black">{formatAmt(activeBalance)}</span>
+                      <span className="text-[7.5px] text-neutral-400 opacity-80">⇄</span>
+                    </button>
                   </div>
                </div>
 
