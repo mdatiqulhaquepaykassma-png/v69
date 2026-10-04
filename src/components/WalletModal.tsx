@@ -171,14 +171,20 @@ export const WalletModal: React.FC<WalletModalProps> = ({
     const baseAmount = convertToBaseCurrency(num, activeCurrency.code);
 
     try {
+      const sid = localStorage.getItem("player_session_id") || "";
       const res = await fetch("/api/wallet/deposit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.userId,
+          ...(sid ? { "x-session-id": sid } : {}),
+        },
         body: JSON.stringify({
           userId: user.userId,
           username: user.username,
           amount: baseAmount,
           method: depositMethod,
+          sessionId: sid,
         }),
       });
       const data = await res.json();
@@ -273,15 +279,21 @@ export const WalletModal: React.FC<WalletModalProps> = ({
 
     setLoading(true);
     try {
+      const sid = localStorage.getItem("player_session_id") || "";
       const res = await fetch("/api/wallet/withdraw", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.userId,
+          ...(sid ? { "x-session-id": sid } : {}),
+        },
         body: JSON.stringify({
           userId: user.userId,
           username: user.username,
           amount: baseAmount,
           method: withdrawMethod,
           accountNumber: withdrawAccountNo,
+          sessionId: sid,
         }),
       });
       const data = await res.json();

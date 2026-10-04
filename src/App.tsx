@@ -48,26 +48,42 @@ export default function App() {
     const checkSession = async () => {
       try {
         const sid = localStorage.getItem("player_session_id");
-        if (!sid) {
-          localStorage.removeItem("dt_user_id");
-          localStorage.removeItem("dt_username");
-          setUser(null);
-          return;
+        const storedUid = localStorage.getItem("dt_user_id");
+        const storedUname = localStorage.getItem("dt_username");
+
+        if (sid) {
+          const res = await fetch("/api/auth/me", {
+            headers: { "x-session-id": sid },
+            credentials: "include",
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user) {
+              setUser(data.user);
+              if (data.sessionId) {
+                localStorage.setItem("player_session_id", data.sessionId);
+              }
+              return;
+            }
+          }
         }
 
-        const res = await fetch("/api/auth/me", {
-          headers: { "x-session-id": sid },
-          credentials: "include",
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.user) {
-            setUser(data.user);
-            if (data.sessionId) {
-              localStorage.setItem("player_session_id", data.sessionId);
+        // Fallback: If user ID exists in localStorage
+        if (storedUid) {
+          const res = await fetch(`/api/wallet/${encodeURIComponent(storedUid)}?username=${encodeURIComponent(storedUname || "")}`, {
+            headers: { "x-user-id": storedUid },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.userId) {
+              const storedType = localStorage.getItem("dt_balance_type") as "real" | "demo" | null;
+              setUser({
+                ...data,
+                balanceType: storedType || data.balanceType || "real",
+              });
+              return;
             }
-            return;
           }
         }
 
@@ -447,9 +463,19 @@ export default function App() {
       const data = await res.json();
       if (data && data.userId) {
         const storedType = localStorage.getItem("dt_balance_type") as "real" | "demo" | null;
-        setUser({
-          ...data,
-          balanceType: storedType || data.balanceType || "real",
+        setUser((prev) => {
+          if (!prev) {
+            return {
+              ...data,
+              balanceType: storedType || data.balanceType || "real",
+            };
+          }
+          return {
+            ...prev,
+            ...data,
+            balance: typeof data.balance === "number" ? data.balance : prev.balance,
+            balanceType: storedType || data.balanceType || prev.balanceType || "real",
+          };
         });
         localStorage.setItem("dt_user_id", userId);
         localStorage.setItem("dt_username", username);

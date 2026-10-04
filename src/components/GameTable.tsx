@@ -776,9 +776,14 @@ export const GameTable = React.memo<GameTableProps>(({
             sound.announceMatchingPhase(dPool, tPool, mAmount, returnedTotal);
             // Instantly refresh wallet upon matching so unmatched refunds appear immediately
             if (user?.userId) {
-              fetch(`/api/wallet/${user.userId}`)
+              const sid = localStorage.getItem("player_session_id") || "";
+              fetch(`/api/wallet/${encodeURIComponent(user.userId)}?username=${encodeURIComponent(user.username)}`, {
+                headers: { "x-user-id": user.userId, ...(sid ? { "x-session-id": sid } : {}) },
+              })
                 .then((r) => r.json())
-                .then((updated) => onUpdateWallet(updated))
+                .then((updated) => {
+                  if (updated && updated.userId) onUpdateWallet(updated);
+                })
                 .catch(() => {});
             }
           }
@@ -1055,10 +1060,13 @@ export const GameTable = React.memo<GameTableProps>(({
           }
 
           if (user?.userId) {
-            fetch(`/api/wallet/${user.userId}`)
+            const sid = localStorage.getItem("player_session_id") || "";
+            fetch(`/api/wallet/${encodeURIComponent(user.userId)}?username=${encodeURIComponent(user.username)}`, {
+              headers: { "x-user-id": user.userId, ...(sid ? { "x-session-id": sid } : {}) },
+            })
               .then((r) => r.json())
               .then((updated) => {
-                onUpdateWallet(updated);
+                if (updated && updated.userId) onUpdateWallet(updated);
               })
               .catch(() => {});
           }
@@ -1356,9 +1364,14 @@ export const GameTable = React.memo<GameTableProps>(({
             [user.balanceType === "real" ? "balance" : "demoBalance"]: data.newBalance,
           });
         }
-        fetch(`/api/wallet/${user.userId}`)
+        const sid = localStorage.getItem("player_session_id") || "";
+        fetch(`/api/wallet/${encodeURIComponent(user.userId)}?username=${encodeURIComponent(user.username)}`, {
+          headers: { "x-user-id": user.userId, ...(sid ? { "x-session-id": sid } : {}) },
+        })
           .then((r) => r.json())
-          .then((updated) => onUpdateWallet(updated))
+          .then((updated) => {
+            if (updated && updated.userId) onUpdateWallet(updated);
+          })
           .catch(() => {});
       } else {
         soundManager.playButtonClick();
@@ -3119,28 +3132,10 @@ export const GameTable = React.memo<GameTableProps>(({
                       )}
                     </motion.button>
 
-                    {/* Interactive Real / Demo Balance Pill with 1-Tap Switch */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playButtonClick();
-                        if (onToggleBalanceType) onToggleBalanceType();
-                      }}
-                      className={`flex items-center gap-1 sm:gap-1.5 px-2 py-0.5 sm:py-1 rounded-lg text-[8px] xs:text-[8.5px] sm:text-[9.5px] font-mono shrink-0 shadow-md transition-all active:scale-95 cursor-pointer border ${
-                        user?.balanceType === "real"
-                          ? "bg-gradient-to-r from-emerald-950/90 via-neutral-950 to-neutral-900 border-emerald-500/50 hover:border-emerald-400 text-emerald-300"
-                          : "bg-gradient-to-r from-purple-950/90 via-neutral-950 to-neutral-900 border-purple-500/50 hover:border-purple-400 text-purple-300"
-                      }`}
-                      title={lang === "bn" ? "রিয়েল ও ডেমো ব্যালেন্স পরিবর্তন করতে ক্লিক করুন" : "Click to Switch Real ⇄ Demo Mode"}
-                    >
-                      <span className={`px-1 py-0.2 rounded text-[6.5px] xs:text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider ${
-                        user?.balanceType === "real" ? "bg-emerald-500 text-neutral-950" : "bg-purple-500 text-white"
-                      }`}>
-                        {user?.balanceType === "real" ? "REAL" : "DEMO"}
-                      </span>
+                    {/* Pure Balance Display (Only Amount) */}
+                    <div className="flex items-center bg-gradient-to-r from-neutral-950 via-amber-950/40 to-neutral-950 border border-amber-500/40 px-2 py-0.5 sm:py-1 rounded-lg text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-mono shrink-0 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
                       <span className="text-amber-300 font-black">{formatAmt(activeBalance)}</span>
-                      <span className="text-[7.5px] text-neutral-400 opacity-80">⇄</span>
-                    </button>
+                    </div>
                   </div>
                </div>
 

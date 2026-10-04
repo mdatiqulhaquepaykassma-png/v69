@@ -7,9 +7,13 @@ import {
   Volume2,
   VolumeX,
   History,
+  Wallet,
+  Plus,
 } from "lucide-react";
 import { UserWallet } from "../types";
 import { BrandLogo } from "./BrandLogo";
+import { AnimatedRollingBalance } from "./AnimatedRollingBalance";
+import { CURRENCIES } from "../utils/currency";
 
 interface NavbarProps {
   user: UserWallet | null;
@@ -71,6 +75,12 @@ export const Navbar = React.memo<NavbarProps>(({
   selectedCurrency,
   lang = "bn",
 }) => {
+  const currencyCfg = (selectedCurrency && CURRENCIES[selectedCurrency]) || CURRENCIES.BDT || {
+    symbol: "৳",
+    symbolPosition: "prefix" as const,
+    decimals: 2,
+  };
+
   return (
     <header className="bg-neutral-950/95 backdrop-blur-2xl border-b border-amber-500/20 sticky top-0 z-50 px-2 sm:px-4 lg:px-6 h-12 sm:h-14 flex items-center shadow-[0_4px_25px_rgba(0,0,0,0.85)] w-full select-none m-0">
       <div className="max-w-[1600px] w-full mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
@@ -172,6 +182,45 @@ export const Navbar = React.memo<NavbarProps>(({
                 {lang === "bn" ? "হিস্ট্রি" : "History"}
               </span>
             </button>
+          )}
+
+          {/* User Wallet Balance Display with Fluid Number-Scrolling Animation */}
+          {user && (
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-neutral-900 via-neutral-900/90 to-amber-950/40 hover:from-neutral-800 hover:to-amber-900/60 border border-amber-500/40 hover:border-amber-400 transition-all shadow-md shadow-black/60 cursor-pointer active:scale-95 shrink-0 group"
+                title={lang === "bn" ? "ওয়ালেট ও ব্যালেন্স (ক্লিক করে ডিপোজিট/উইথড্র করুন)" : "Wallet & Balance (Click to Deposit/Withdraw)"}
+                aria-label="User Wallet & Balance"
+              >
+                {/* Balance Mode Indicator Badge */}
+                <span
+                  className={`text-[8px] sm:text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md leading-none tracking-wider ${
+                    user.balanceType === "real"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                      : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                  }`}
+                >
+                  {user.balanceType === "real" ? "REAL" : "DEMO"}
+                </span>
+
+                {/* Subtle Number-Scrolling Animation */}
+                <div className="flex items-center text-xs sm:text-sm font-black text-amber-300 group-hover:text-amber-200 transition-colors">
+                  <AnimatedRollingBalance
+                    value={user.balanceType === "real" ? user.balance : user.demoBalance}
+                    currencySymbol={currencyCfg.symbol}
+                    symbolPosition={currencyCfg.symbolPosition}
+                    decimals={currencyCfg.decimals === 0 ? 0 : 2}
+                  />
+                </div>
+
+                {/* Plus / Quick Deposit Icon */}
+                <div className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-lg bg-amber-500/20 group-hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 flex items-center justify-center text-[10px] font-black transition-transform group-hover:scale-110 ml-0.5 shrink-0">
+                  <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 stroke-[3]" />
+                </div>
+              </button>
+            </div>
           )}
 
           {/* Login / Register for Guests */}
